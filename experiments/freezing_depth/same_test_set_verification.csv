@@ -1,0 +1,6 @@
+freeze_depth,n_predictions,unique_sample_ids,same_sample_set_as_freeze_12,missing_samples_vs_freeze_12,extra_samples_vs_freeze_12,ground_truth_mismatches,same_ground_truth,VERIFICATION_PASS
+6,345,345,TRUE,0,0,0,TRUE,TRUE
+8,345,345,TRUE,0,0,0,TRUE,TRUE
+12,345,345,TRUE,0,0,0,TRUE,TRUE
+16,345,345,TRUE,0,0,0,TRUE,TRUE
+18,345,345,TRUE,0,0,0,TRUE,TRUE

@@ -1,0 +1,67 @@
+# macOS / editor metadata
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+Desktop.ini
+
+# Python caches and build artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+dist/
+build/
+
+# Jupyter temporary files
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/
+
+# Local environments and secrets
+.venv/
+venv/
+env/
+ENV/
+*.env
+.env
+.env.*
+!.env.example
+
+# Local logs
+*.log
+logs/
+
+# Local model checkpoints / large binary artifacts
+checkpoints/
+**/checkpoints/
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.bin
+
+# Raw/private speech data and local evaluation archives
+# Keep only public, redistributable metadata/statistics in the repository.
+data/raw/
+data/audio/
+data/wav/
+data/evaluation/
+evaluation/
+evaluations/
+MODEL_*_Evaluations/
+
+# Local experiment outputs that are not manuscript-facing result tables
+# (Manuscript-facing CSVs under results/ are intentionally tracked.)
+**/local_outputs/
+**/tmp/
+
+# Google Colab / personal-machine paths should never be committed.
+# Do not add absolute Drive paths to repository configuration files.
+
+# Office temporary lock files
+~$*

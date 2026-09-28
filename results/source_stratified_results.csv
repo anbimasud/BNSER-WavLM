@@ -1,0 +1,4 @@
+Configuration,Scripted_N,Scripted_Correct,Scripted_Accuracy_percent,Drama_derived_N,Drama_derived_Correct,Drama_derived_Accuracy_percent,Gap_percentage_points
+WavLM-FT,250,200,80.0,45,22,48.89,31.11
+WavLM-FT+Aug,250,230,92.0,45,30,66.67,25.33
+WavLM-PEFT,250,232,92.8,45,29,64.44,28.36

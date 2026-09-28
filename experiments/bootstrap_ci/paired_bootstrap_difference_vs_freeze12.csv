@@ -1,0 +1,17 @@
+Comparison,Freeze_Depth,Metric,Observed_Difference,CI_95_Lower,CI_95_Upper,N_Bootstrap
+Freeze-6 minus Freeze-12,6,Accuracy,3.19,0.0,6.67,10000
+Freeze-6 minus Freeze-12,6,Balanced_Accuracy,2.78,-0.45,6.08,10000
+Freeze-6 minus Freeze-12,6,Macro_F1,3.1,-0.15,6.5,10000
+Freeze-6 minus Freeze-12,6,Weighted_F1,3.33,0.02,6.77,10000
+Freeze-8 minus Freeze-12,8,Accuracy,0.87,-2.61,4.35,10000
+Freeze-8 minus Freeze-12,8,Balanced_Accuracy,0.44,-2.91,3.79,10000
+Freeze-8 minus Freeze-12,8,Macro_F1,0.74,-2.61,4.11,10000
+Freeze-8 minus Freeze-12,8,Weighted_F1,1.05,-2.37,4.5,10000
+Freeze-16 minus Freeze-12,16,Accuracy,-26.96,-32.17,-21.74,10000
+Freeze-16 minus Freeze-12,16,Balanced_Accuracy,-27.58,-32.5,-22.65,10000
+Freeze-16 minus Freeze-12,16,Macro_F1,-27.28,-32.66,-22.23,10000
+Freeze-16 minus Freeze-12,16,Weighted_F1,-27.21,-32.73,-21.84,10000
+Freeze-18 minus Freeze-12,18,Accuracy,-26.96,-32.75,-21.45,10000
+Freeze-18 minus Freeze-12,18,Balanced_Accuracy,-28.05,-33.08,-22.94,10000
+Freeze-18 minus Freeze-12,18,Macro_F1,-28.97,-34.83,-23.37,10000
+Freeze-18 minus Freeze-12,18,Weighted_F1,-28.42,-34.58,-22.63,10000

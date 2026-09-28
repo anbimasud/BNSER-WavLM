@@ -1,0 +1,62 @@
+# BNSER-WavLM standardized inference-efficiency benchmark
+#
+# The benchmark reconstructs the exact WavLMForSequenceClassification
+# architecture used by the original BNSER training notebooks.
+# Training-only augmentation, class weighting, and gradient accumulation are
+# disabled/not applicable during inference.
+
+hardware:
+  required_gpu_name: "NVIDIA Tesla T4"
+
+input:
+  sampling_rate_hz: 16000
+  duration_seconds: 4.0
+  batch_size: 1
+  waveform_type: "zero_tensor"
+
+inference:
+  eval_mode: true
+  inference_mode: true
+  warmup_iterations: 20
+  timed_iterations: 300
+  cuda_synchronize: true
+
+metrics:
+  latency_ms: ["mean", "median", "p95"]
+  throughput_definition: "1000 / mean_latency_ms"
+  rtf_definition: "mean_latency_seconds / input_duration_seconds"
+  memory_definition: "peak torch.cuda.max_memory_allocated during timed inference"
+
+# Checkpoints are intentionally specified relative to the repository root.
+# Do not use personal Google Drive / Colab paths here.
+models:
+  WavLM-FT:
+    checkpoint: "checkpoints/Model_WavLM_FT_m1.pt"
+    freeze_first_n_layers: 0
+    augmentation_during_inference: false
+
+  WavLM-FT+Aug:
+    checkpoint: "checkpoints/Model_WavLM_FT_Aug_m2.pt"
+    freeze_first_n_layers: 0
+    augmentation_during_inference: false
+
+  WavLM-PEFT:
+    checkpoint: "checkpoints/Model_WavLM_PEFT_m3.pt"
+    freeze_first_n_layers: 12
+    augmentation_during_inference: false
+
+architecture:
+  model_class: "WavLMForSequenceClassification"
+  pretrained_config: "microsoft/wavlm-large"
+  num_classes: 6
+  hidden_size: 1024
+  transformer_layers: 24
+  custom_projector: false
+  class_order: ["angry", "disgust", "fear", "happy", "neutral", "sad"]
+
+outputs:
+  directory: "results"
+  timing_directory: "inference_raw"
+  summary_file: "efficiency_results.csv"
+  layer_verification_file: "layer_execution_verification.csv"
+  metadata_file: "run_metadata.json"

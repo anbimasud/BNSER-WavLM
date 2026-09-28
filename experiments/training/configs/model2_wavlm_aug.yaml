@@ -1,0 +1,36 @@
+# BNSER-WavLM — Model 2: WavLM-FT+Aug
+model:
+  name: microsoft/wavlm-large
+  num_labels: 6
+  freeze_first_n_layers: 0
+data:
+  split_names: {train: Train, validation: Val, test: Test}
+  sample_rate: 16000
+  duration_seconds: 4.0
+  file_extension: .wav
+  train_crop_mode: random
+  eval_crop_mode: center
+
+training:
+  seed: 42
+  batch_size: 4
+  gradient_accumulation_steps: 1
+  learning_rate: 1.0e-5
+  max_epochs: 50
+  early_stopping_patience: 5
+  validation_loss_aggregation: batch_mean
+augmentation:
+  enabled: true
+  probability: 0.35
+  noise_probability: 0.40
+  pitch_probability: 0.30
+  time_stretch_probability: 0.30
+  noise_level_min: 0.005
+  noise_level_max: 0.020
+  pitch_steps_min: -0.5
+  pitch_steps_max: 0.5
+  stretch_rate_min: 0.95
+  stretch_rate_max: 1.05
+loss:
+  type: cross_entropy
+  class_weights: {angry: 1.0, disgust: 1.0, fear: 1.0, happy: 1.0, neutral: 1.0, sad: 1.0}
