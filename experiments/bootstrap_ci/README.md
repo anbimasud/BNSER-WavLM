@@ -1,141 +1,113 @@
-# Freezing-Depth Sensitivity Experiment
+# Bootstrap Confidence Intervals
 
-This directory contains the reviewer-facing implementation of the freezing-depth sensitivity analysis for the BNSER-WavLM study.
+This directory contains the bootstrap analysis used to quantify uncertainty for the three BNSER-WavLM configurations on the fixed speaker-independent test set.
 
-## Purpose
+The analysis is intentionally kept as a single script so that the reviewer-facing repository remains simple and easy to inspect.
 
-The study uses a 12-layer freezing configuration as the reference WavLM-PEFT setting. To examine sensitivity to the freezing boundary, the first **6, 8, 16, and 18 Transformer layers** were additionally evaluated on the same speaker-independent test partition.
+## Scope
 
-This experiment is a **freezing-depth sensitivity analysis within the full WavLM-PEFT configuration**. It is not a component-wise ablation of augmentation, class weighting, or gradient accumulation.
+The script reproduces the manuscript's uncertainty-analysis protocol:
 
-The 12-layer result is the **pre-existing WavLM-PEFT reference run reported in the manuscript**. It is not retrained by `freezing_depth.py`. The additional depths are trained once on the same predefined Train/Validation/Test split.
+- fixed speaker-independent test set: **345 utterances**;
+- **10,000** non-parametric bootstrap resamples with replacement;
+- **95% percentile confidence intervals** using the 2.5th and 97.5th percentiles;
+- Accuracy, Macro-F1, Weighted F1, and Balanced Accuracy for each configuration;
+- paired bootstrap confidence intervals for **Accuracy differences** between configurations evaluated on the same test instances.
 
-## Fixed experimental configuration
+Macro-AUC is not bootstrapped in the manuscript and is therefore not calculated by this script.
 
-All additional freezing-depth runs retain the other WavLM-PEFT settings reported in the manuscript:
+The three model configurations are:
 
-- Backbone: `microsoft/wavlm-large`
-- WavLM Transformer layers: 24
-- Input sampling rate: 16 kHz
-- Input duration: 4 seconds
-- Dataset partition: predefined speaker-independent Train/Validation/Test split
-- Train / Validation / Test samples: 1,610 / 345 / 345
-- Test speakers: 4 held-out speakers
-- Optimizer: AdamW
-- Learning rate: `1e-5`
-- Maximum epochs: 50
-- Early-stopping patience: 5 epochs
-- Random seed: 42
-- Physical batch size: 4
-- Gradient accumulation: 4 steps
-- Effective batch size: 16
-- Training augmentation: 35% of training samples
-- Augmentation type allocation: 40% additive Gaussian noise, 30% pitch shift, 30% time stretch
-- Pitch shift range: ±0.5 semitones
-- Time-stretch range: ±5%
-- Noise scale: 0.5–2% of the current waveform peak amplitude
-- Class-weighted cross-entropy: Neutral = 1.4; all other classes = 1.0
-- Validation and test audio: no augmentation
+- **WavLM-FT** — full fine-tuning;
+- **WavLM-FT+Aug** — full fine-tuning with training-only augmentation;
+- **WavLM-PEFT** — the combined PEFT configuration reported in the manuscript.
 
-The validation-loss aggregation follows the Model-3 reference implementation (`batch_mean`). The original four-step accumulation behavior is preserved: an incomplete final accumulation group is not stepped.
+## Required input
 
-## Evaluated freezing depths
-
-| Frozen Transformer layers | Status |
-|---:|---|
-| 6 | Additional sensitivity run |
-| 8 | Additional sensitivity run |
-| 12 | Existing WavLM-PEFT reference run; not retrained here |
-| 16 | Additional sensitivity run |
-| 18 | Additional sensitivity run |
-
-For a freezing depth `d`, layers `0` through `d-1` are frozen and the remaining WavLM Transformer layers remain trainable. The convolutional feature encoder and classification head are not removed from the model.
-
-## Why this experiment is separate from the primary training notebooks
-
-The primary training directory contains the three reported model configurations:
+The script reads:
 
 ```text
-experiments/training/
-├── model1_wavlm_ft/
-├── model2_wavlm_aug/
-└── model3_wavlm_peft/
+results/test_predictions.csv
 ```
 
-This directory contains the additional reviewer-requested sensitivity analysis. It does not maintain a second implementation of the dataset pipeline, augmentation, model construction, or training loop. Instead, `freezing_depth.py` imports those components from:
+The file must contain exactly one row for each of the 345 test utterances and these columns:
 
 ```text
-experiments/training/common/
+sample_id,y_true,model1_pred,model2_pred,model3_pred
 ```
 
-This keeps the repository's training logic in one place and reduces the risk of implementation drift between the primary WavLM-PEFT model and the freezing-depth experiments.
+`sample_id` must be unique. The prediction columns must correspond to the same test utterances, in the same evaluation set, and `y_true` is the common ground-truth label for those utterances.
 
-## Running the experiment
+The script checks the row count, required columns, duplicate IDs, missing values, six-class ground truth, and prediction-label compatibility before running the bootstrap analysis. It stops with an error if these checks fail.
 
-From the repository root, set the local path to the BNSER dataset. The dataset itself is not redistributed in this repository.
+The prediction table is a model-output artifact rather than the speech dataset itself. No audio files are required by this analysis.
+
+## Method
+
+For each model, bootstrap samples are drawn from the fixed 345 test instances with replacement. For every resample, Accuracy, Macro-F1, Weighted F1, and Balanced Accuracy are recomputed. The 2.5th and 97.5th percentiles of the 10,000 bootstrap estimates form the 95% percentile confidence interval.
+
+For paired comparisons, the same bootstrap indices are applied to both models. The reported difference is defined as:
+
+```text
+Accuracy(comparison model) - Accuracy(reference model)
+```
+
+The paired comparisons are:
+
+```text
+WavLM-FT+Aug - WavLM-FT
+WavLM-PEFT - WavLM-FT+Aug
+WavLM-PEFT - WavLM-FT
+```
+
+These differences are reported in **percentage points (pp)**.
+
+A fixed random seed of 42 is used so that the analysis is deterministic. The bootstrap intervals describe uncertainty conditional on the evaluated test set and the reported trained configurations. They do not quantify variability across alternative speaker partitions, repeated training runs, or a broader population of speakers.
+
+## Run
+
+From the repository root:
 
 ```bash
-export BNSER_DATA_DIR=/path/to/FInal_2300_Data_Spk_wise_split
-python experiments/freezing_depth/freezing_depth.py
+python experiments/bootstrap_ci/bootstrap_ci.py
 ```
 
-The expected dataset structure is:
+The script writes:
 
 ```text
-FInal_2300_Data_Spk_wise_split/
-├── Train/
-├── Val/
-└── Test/
+results/bootstrap_results.csv
 ```
 
-The script validates that the predefined split contains 1,610 training, 345 validation, and 345 test samples before any training begins. It does **not** create a new random train/validation/test split.
+The output table contains the model/comparison name, metric, test-set size, point estimate, lower and upper confidence limits, number of bootstrap replicates, confidence level, method, and seed. Metric estimates and confidence limits are expressed as percentages; paired Accuracy differences are expressed as percentage-point differences.
 
-### Optional verification against the existing 12-layer reference
+## Manuscript verification targets
 
-If the prediction CSV from the reported 12-layer WavLM-PEFT run is available locally, pass it to the script:
+The following values are the reported values in the revised manuscript and can be used to verify the prediction artifact and bootstrap implementation. They are **checking targets only**; the script does not read or hard-code these values.
 
-```bash
-python experiments/freezing_depth/freezing_depth.py \
-    --reference-predictions /path/to/model3/test_predictions.csv
-```
+| Model | Metric | Point estimate | 95% CI |
+|---|---|---:|---:|
+| WavLM-FT | Accuracy | 75.07% | 70.43–79.42% |
+| WavLM-FT | Weighted F1 | 75.68% | 71.18–80.01% |
+| WavLM-FT | Balanced Accuracy | 75.31% | 70.97–79.51% |
+| WavLM-FT+Aug | Accuracy | 82.61% | 78.55–86.38% |
+| WavLM-FT+Aug | Weighted F1 | 82.57% | 78.53–86.44% |
+| WavLM-FT+Aug | Balanced Accuracy | 81.84% | 78.00–85.59% |
+| WavLM-PEFT | Accuracy | 88.70% | 85.22–91.88% |
+| WavLM-PEFT | Weighted F1 | 88.72% | 85.30–91.88% |
+| WavLM-PEFT | Balanced Accuracy | 88.81% | 85.41–91.95% |
 
-The script then compares the speaker, emotion, and audio-file identity of every additional run with the existing 12-layer reference test set.
+Reported paired Accuracy differences:
 
-## Outputs
+| Comparison | Observed difference | 95% CI |
+|---|---:|---:|
+| WavLM-FT+Aug − WavLM-FT | +7.54 pp | +2.90 to +12.46 pp |
+| WavLM-PEFT − WavLM-FT+Aug | +6.09 pp | +1.74 to +10.43 pp |
+| WavLM-PEFT − WavLM-FT | +13.62 pp | +8.70 to +18.55 pp |
 
-The script creates one isolated directory for each additional freezing depth:
+Small differences in the final displayed decimal places can occur if the prediction artifact, software versions, or numerical environment differs from the archived analysis. The reported manuscript values remain the publication reference values.
 
-```text
-experiments/freezing_depth/runs/
-├── freeze_6/
-├── freeze_8/
-├── freeze_16/
-└── freeze_18/
-```
+## Reproducibility boundary
 
-Each run contains the machine-readable training and evaluation artifacts needed for local verification, including the best checkpoint, training history, test predictions, class-wise metrics, and experiment configuration.
+This analysis is conditional on one fixed speaker-independent partition and one trained instance of each configuration. Therefore, the bootstrap intervals should be interpreted as uncertainty for the evaluated test set, not as uncertainty across alternative speaker splits or independent training runs.
 
-The reviewer-facing summary files are:
-
-```text
-freezing_depth_results.csv
-same_test_set_verification.csv
-```
-
-These summary files are generated from the completed runs rather than manually entering model results.
-
-## Reproducibility and interpretation
-
-The five freezing depths use the same predefined speaker-independent partition. The additional configurations are trained once, so the experiment does not estimate variability across alternative training runs or alternative speaker splits.
-
-The sensitivity analysis is therefore interpreted descriptively. In particular, the 12-layer configuration is retained in the manuscript as a **performance–parameter-efficiency compromise**, not as an accuracy optimum. A higher accuracy at another freezing depth does not by itself establish statistical superiority or general population-level superiority.
-
-The experiment also does not establish that a particular Transformer layer boundary preserves emotion-specific information. It evaluates the empirical effect of changing the freezing boundary under the otherwise fixed WavLM-PEFT configuration.
-
-## Relation to the manuscript
-
-The implementation corresponds to the manuscript's description that:
-
-> the pre-existing 12-layer WavLM-PEFT reference was supplemented by evaluations freezing the first 6, 8, 16, and 18 layers on the same speaker-independent test set.
-
-The code is intentionally limited to this sensitivity analysis and does not alter the reported primary model definitions.
+The bootstrap analysis also does not establish population-level generalization beyond the evaluated BNSER corpus and held-out speakers.

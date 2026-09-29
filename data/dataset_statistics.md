@@ -200,7 +200,7 @@ The repository's training implementation applies random cropping to longer train
 
 ## 9. Annotation Summary
 
-All samples were independently labelled by **three native Noakhali-dialect annotators** using Label Studio. The annotators comprised two male and one female annotator.
+ The BNSER corpus comprises 2,300 speech samples. For the annotation-agreement analysis, samples were independently labelled by **three native Noakhali-dialect annotators** using Label Studio. The annotators comprised two male and one female annotator. A reproducible matrix of **2,200 samples with complete labels from all three annotators** was used to calculate the pairwise Cohen's $\kappa$ values.
 
 Annotation was based on acoustic perception without visual or semantic context and followed a brief description of the six emotion categories.
 

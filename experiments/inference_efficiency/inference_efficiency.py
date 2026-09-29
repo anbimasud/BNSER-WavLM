@@ -19,11 +19,12 @@ execute during timed inference.
 
 IMPORTANT REPRODUCIBILITY NOTE
 ------------------------------
-The benchmark uses the exact checkpoint format used by the BNSER training
-experiments: checkpoint['model_state'] contains keys beginning with
-'backbone.'. The model architecture is reconstructed from WavLMConfig and
-loaded with strict=True after exact key/shape validation. This avoids silently
-benchmarking a newly initialized downstream classification head.
+The benchmark uses the exact checkpoint format produced by the BNSER training
+experiments: ``torch.save(model.state_dict(), ...)``. The model is reconstructed
+from the same Hugging Face ``WavLMForSequenceClassification`` configuration and
+loaded with strict=True after exact key/shape validation. This preserves the
+training checkpoint key hierarchy and avoids silently benchmarking a newly
+initialized downstream classification head.
 
 The benchmark input is a deterministic zero waveform with the same shape as
 the manuscript test-time input: batch size 1, 16 kHz, 4 seconds (64,000
@@ -35,6 +36,7 @@ from __future__ import annotations
 
 import csv
 import gc
+import hashlib
 import json
 import os
 import platform
@@ -46,7 +48,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import yaml
-from transformers import WavLMConfig, WavLMModel
+from transformers import WavLMConfig, WavLMForSequenceClassification
 
 
 # ---------------------------------------------------------------------------
@@ -54,6 +56,7 @@ from transformers import WavLMConfig, WavLMModel
 # ---------------------------------------------------------------------------
 
 ROOT = Path(__file__).resolve().parent
+REPO_ROOT = ROOT.parents[1]
 CONFIG_PATH = ROOT / "benchmark_config.yaml"
 
 
@@ -74,14 +77,18 @@ CONFIG = load_config(CONFIG_PATH)
 
 
 def resolve_checkpoint_path(checkpoint_value: str) -> Path:
-    """Resolve a checkpoint filename using an environment-configurable root.
+    """Resolve a checkpoint filename relative to the checkpoint directory.
 
-    BNSER_CHECKPOINT_ROOT can point to any local/cloud-mounted directory
-    containing the benchmark checkpoints. If it is not set, the portable
-    repository-local ./checkpoints directory is used.
+    ``BNSER_CHECKPOINT_ROOT`` may point to any local/cloud-mounted directory
+    that *contains* the benchmark checkpoints. If it is not set, the default
+    is the repository-local ``./checkpoints`` directory. Configuration values
+    therefore contain filenames such as ``Model_WavLM_FT_m1.pt`` rather than
+    ``checkpoints/Model_WavLM_FT_m1.pt``.
     """
     checkpoint_root_env = str(CONFIG.get("checkpoint_root_env", "BNSER_CHECKPOINT_ROOT"))
-    checkpoint_root = Path(os.environ.get(checkpoint_root_env, ROOT / "checkpoints")).expanduser()
+    checkpoint_root = Path(
+        os.environ.get(checkpoint_root_env, REPO_ROOT / "checkpoints")
+    ).expanduser()
     checkpoint_path = Path(checkpoint_value).expanduser()
 
     if checkpoint_path.is_absolute():
@@ -120,39 +127,40 @@ EXPECTED_M3_FROZEN_PARAMS = 151_166_240
 EXPECTED_M3_TRAINABLE_REDUCTION = 47.88
 EXPECTED_TRANSFORMER_LAYERS = 24
 
+# Canonical manuscript-facing summary schema.  Keep this explicit so the
+# benchmark implementation cannot silently drift from the archived evidence
+# table.  Run-specific checkpoint and raw-timing paths belong in the metadata
+# record rather than in this summary CSV.
+CANONICAL_RESULT_COLUMNS = [
+    "model",
+    "mean_latency_ms",
+    "median_latency_ms",
+    "p95_latency_ms",
+    "throughput_samples_per_s",
+    "rtf",
+    "peak_gpu_memory_allocated_gb",
+    "total_parameters",
+    "trainable_parameters",
+    "frozen_parameters",
+    "gpu",
+    "pytorch_version",
+    "python_version",
+    "sample_rate_hz",
+    "input_duration_seconds",
+    "input_samples",
+    "batch_size",
+    "warmup_iterations",
+    "timed_iterations",
+    "eval_mode",
+    "inference_mode",
+    "cuda_synchronized",
+    "augmentation_during_inference",
+]
+
 
 # ---------------------------------------------------------------------------
 # Model architecture
 # ---------------------------------------------------------------------------
-
-class BNSERBackbone(nn.Module):
-    """Reconstruct the architecture represented by the BNSER checkpoints."""
-
-    def __init__(self, num_classes: int, config_name: str):
-        super().__init__()
-
-        config = WavLMConfig.from_pretrained(config_name)
-        self.wavlm = WavLMModel(config)
-        self.projector = nn.Linear(config.hidden_size, 256)
-        self.classifier = nn.Linear(256, num_classes)
-
-    def forward(self, input_values: torch.Tensor) -> torch.Tensor:
-        outputs = self.wavlm(input_values=input_values)
-        pooled = outputs.last_hidden_state.mean(dim=1)
-        projected = self.projector(pooled)
-        return self.classifier(projected)
-
-
-class BNSERModel(nn.Module):
-    """Top-level wrapper matching the saved checkpoint key hierarchy."""
-
-    def __init__(self, num_classes: int, config_name: str):
-        super().__init__()
-        self.backbone = BNSERBackbone(num_classes, config_name)
-
-    def forward(self, input_values: torch.Tensor) -> torch.Tensor:
-        return self.backbone(input_values)
-
 
 # ---------------------------------------------------------------------------
 # Validation helpers
@@ -233,7 +241,7 @@ def validate_parameter_counts(model_name: str, model: nn.Module) -> Dict[str, An
 
 
 def freeze_first_n_layers(model: nn.Module, n_layers: int) -> None:
-    layers = model.backbone.wavlm.encoder.layers
+    layers = model.wavlm.encoder.layers
 
     if len(layers) != EXPECTED_TRANSFORMER_LAYERS:
         raise RuntimeError(
@@ -250,7 +258,7 @@ def freeze_first_n_layers(model: nn.Module, n_layers: int) -> None:
 
 
 def verify_model3_freezing(model: nn.Module) -> None:
-    layers = model.backbone.wavlm.encoder.layers
+    layers = model.wavlm.encoder.layers
 
     if len(layers) != EXPECTED_TRANSFORMER_LAYERS:
         raise RuntimeError("Model 3 does not contain exactly 24 Transformer layers.")
@@ -301,19 +309,18 @@ def load_checkpoint_exact(
     if not isinstance(checkpoint, dict):
         raise TypeError(f"{model_name}: checkpoint must be a dictionary.")
 
-    if "model_state" not in checkpoint:
-        raise KeyError(
-            f"{model_name}: checkpoint does not contain the required 'model_state' key."
-        )
+    # Training saves the raw ``model.state_dict()`` directly.  Do not wrap it
+    # in or expect a nested ``model_state`` dictionary: doing so would make
+    # the benchmark incompatible with the actual training artifacts.
+    checkpoint_state = checkpoint
+    if not all(isinstance(key, str) for key in checkpoint_state.keys()):
+        raise TypeError(f"{model_name}: checkpoint keys must be strings.")
 
-    checkpoint_state = checkpoint["model_state"]
-    if not isinstance(checkpoint_state, dict):
-        raise TypeError(f"{model_name}: 'model_state' must be a state dictionary.")
-
-    model = BNSERModel(
-        num_classes=num_classes,
-        config_name=config_name,
+    config = WavLMConfig.from_pretrained(
+        config_name,
+        num_labels=num_classes,
     )
+    model = WavLMForSequenceClassification(config)
 
     model_state = model.state_dict()
     checkpoint_keys = set(checkpoint_state.keys())
@@ -364,9 +371,7 @@ def load_checkpoint_exact(
     print(f"Frozen parameters: {parameter_info['frozen_parameters']:,}")
 
     return model, {
-        "checkpoint_epoch": checkpoint.get("epoch", None),
-        "checkpoint_val_loss": checkpoint.get("val_loss", None),
-        "checkpoint_val_accuracy": checkpoint.get("val_acc", None),
+        "checkpoint_format": "raw_state_dict",
         **parameter_info,
     }
 
@@ -485,7 +490,7 @@ def verify_model3_forward_path(
 ) -> List[int]:
     """Verify all 24 Transformer layers execute exactly once per forward."""
 
-    layers = model.backbone.wavlm.encoder.layers
+    layers = model.wavlm.encoder.layers
 
     if len(layers) != EXPECTED_TRANSFORMER_LAYERS:
         raise RuntimeError(
@@ -563,6 +568,14 @@ def write_json(path: Path, payload: Dict[str, Any]) -> None:
         json.dump(payload, f, indent=2, ensure_ascii=False)
 
 
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 # ---------------------------------------------------------------------------
 # Main benchmark
 # ---------------------------------------------------------------------------
@@ -600,6 +613,7 @@ def main() -> None:
         raise RuntimeError("The standardized protocol requires 20 warm-up and 300 timed iterations.")
 
     model_results = []
+    benchmark_records = []
     layer_counts = None
 
     print("\n" + "=" * 76)
@@ -664,20 +678,26 @@ def main() -> None:
             "peak_gpu_memory_allocated_gb": peak_memory_gb,
             **parameter_info,
             "gpu": gpu_name,
+            "pytorch_version": torch.__version__,
+            "python_version": platform.python_version(),
             "sample_rate_hz": sample_rate,
             "input_duration_seconds": duration,
+            "input_samples": int(sample_rate * duration),
             "batch_size": 1,
             "warmup_iterations": warmup,
             "timed_iterations": timed,
             "eval_mode": True,
-            "torch_inference_mode": True,
+            "inference_mode": True,
             "cuda_synchronized": True,
             "augmentation_during_inference": False,
-            "checkpoint_path": str(checkpoint_path),
-            "checkpoint_epoch": checkpoint_info["checkpoint_epoch"],
-            "timing_file": str(timing_path.relative_to(ROOT)),
         }
         model_results.append(result_row)
+        benchmark_records.append({
+            "model": model_name,
+            "checkpoint_path": str(checkpoint_path),
+            "checkpoint_format": checkpoint_info["checkpoint_format"],
+            "timing_file": str(timing_path.relative_to(ROOT)),
+        })
 
         print("\n" + "-" * 76)
         print(f"RESULT: {model_name}")
@@ -717,16 +737,23 @@ def main() -> None:
         torch.cuda.empty_cache()
         synchronize_cuda()
 
-    # Summary CSV.
+    # Summary CSV.  The field order is fixed to the canonical manuscript-facing
+    # schema used by the committed evidence artifact.
     summary_path = RESULTS_DIR / CONFIG["outputs"]["summary_file"]
-    fieldnames = list(model_results[0].keys())
+    if any(set(row) != set(CANONICAL_RESULT_COLUMNS) for row in model_results):
+        raise RuntimeError(
+            "Benchmark result schema drift detected. "
+            f"Expected columns: {CANONICAL_RESULT_COLUMNS}"
+        )
     with summary_path.open("w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer = csv.DictWriter(f, fieldnames=CANONICAL_RESULT_COLUMNS)
         writer.writeheader()
         writer.writerows(model_results)
 
     metadata = {
         "benchmark_name": "BNSER-WavLM standardized inference-efficiency benchmark",
+        "benchmark_script_sha256": sha256_file(Path(__file__).resolve()),
+        "benchmark_config_sha256": sha256_file(CONFIG_PATH),
         "hardware": gpu_name,
         "pytorch_version": torch.__version__,
         "python_version": platform.python_version(),
@@ -744,6 +771,8 @@ def main() -> None:
         "torch_inference_mode": True,
         "cuda_synchronized": True,
         "augmentation_during_inference": False,
+        "canonical_result_columns": CANONICAL_RESULT_COLUMNS,
+        "benchmark_records": benchmark_records,
         "m3_all_24_layers_verified": layer_counts is not None,
         "m3_expected_execution_count_per_layer": timed,
         "class_order": EXPECTED_CLASS_ORDER,

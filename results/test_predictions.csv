@@ -1,4 +1,4 @@
-sample_id,sample_key,speaker_id,source,true_label,pred_WavLM-FT,pred_WavLM-FT+Aug,pred_WavLM-PEFT
+sample_id,sample_key,speaker_id,source,y_true,model1_pred,model2_pred,model3_pred
 1,F2_A14/angry/F_14_ANGRY_01_1.wav,A14,Scripted,angry,angry,angry,angry
 2,F2_A14/angry/F_14_ANGRY_01_2.wav,A14,Scripted,angry,angry,angry,angry
 3,F2_A14/angry/F_14_ANGRY_01_3.wav,A14,Scripted,angry,angry,angry,angry

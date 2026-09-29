@@ -58,10 +58,9 @@ def load_annotations(path: Path) -> pd.DataFrame:
             raise ValueError(f"Missing annotation labels found in {col}.")
 
     if len(out) != EXPECTED_ANNOTATION_ROWS:
-        print(
-            f"WARNING: supplied annotation matrix contains {len(out)} rows; "
-            f"the repository audit expected {EXPECTED_ANNOTATION_ROWS}. "
-            "The calculation will use the rows actually present and will not invent missing annotations."
+        raise ValueError(
+            f"Expected exactly {EXPECTED_ANNOTATION_ROWS} complete annotation rows; "
+            f"found {len(out)}."
         )
 
     return out

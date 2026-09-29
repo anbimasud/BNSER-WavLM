@@ -157,7 +157,7 @@ The machine-readable benchmark table is [`results/efficiency_results.csv`](resul
 
 ## 9. Annotation reliability
 
-Three native Noakhali-dialect annotators independently labelled the corpus. The revised manuscript reports pairwise Cohen's κ values of:
+The BNSER corpus contains 2,300 speech samples. Inter-annotator agreement was assessed on 2,200 annotated samples. Three native Noakhali-dialect annotators independently labelled the corpus. The revised manuscript reports pairwise Cohen's κ values of:
 
 - Annotator 1 vs Annotator 2: **0.805011**
 - Annotator 1 vs Annotator 3: **0.802409**
@@ -168,11 +168,10 @@ The previously disputed **90.56%** agreement figure is not used in the revised r
 
 The Anotation summary is [`results/kappa_results.xlsx`](results/kappa_results.xlsx), and the corresponding analysis is under [`analysis/kappa_analysis/`](analysis/kappa_analysis/).
 
-## 10. Confidence and confusion analyses
+## 10. Confusion-matrix analysis
 
 [`analysis/confusion_matrix/`](analysis/confusion_matrix/) contains the confusion-matrix analysis and machine-readable matrices.
 
-[`analysis/confidence_analysis/`](analysis/confidence_analysis/) contains a descriptive confidence-separation analysis. It is not presented as formal probability calibration: the repository does not claim ECE, Brier-score, or reliability-diagram evidence from the supplied archive.
 
 ## 11. WavLM backbone interpretation
 
@@ -216,16 +215,18 @@ BNSER-WavLM/
 │   └── inference_efficiency/
 ├── analysis/
 │   ├── confusion_matrix/
-│   ├── confidence_analysis/
 │   └── kappa_analysis/
 ├── results/
 │   ├── test_predictions.csv
 │   ├── bootstrap_results.csv
+│   ├── source_stratified_results.csv
 │   ├── efficiency_results.csv
+│   ├── layer_execution_verification.csv
 │   ├── kappa_results.xlsx
-│   └── source_stratified_results.csv
+│   ├── pairwise_kappa.csv
+│   └── kappa_mean.csv
 └── supplementary/
-    └── merged_all_annotators.csv  
+    └── merged_annotations.csv
 ```
 
 ## 14. Software environment

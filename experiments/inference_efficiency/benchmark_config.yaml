@@ -27,21 +27,23 @@ metrics:
   rtf_definition: "mean_latency_seconds / input_duration_seconds"
   memory_definition: "peak torch.cuda.max_memory_allocated during timed inference"
 
-# Checkpoints are intentionally specified relative to the repository root.
+# Checkpoint values are filenames relative to the configured checkpoint root.
+# By default, the checkpoint root is the repository-local ./checkpoints directory.
+# Do not include the "checkpoints/" directory name in these values.
 # Do not use personal Google Drive / Colab paths here.
 models:
   WavLM-FT:
-    checkpoint: "checkpoints/Model_WavLM_FT_m1.pt"
+    checkpoint: "Model_WavLM_FT_m1.pt"
     freeze_first_n_layers: 0
     augmentation_during_inference: false
 
   WavLM-FT+Aug:
-    checkpoint: "checkpoints/Model_WavLM_FT_Aug_m2.pt"
+    checkpoint: "Model_WavLM_FT_Aug_m2.pt"
     freeze_first_n_layers: 0
     augmentation_during_inference: false
 
   WavLM-PEFT:
-    checkpoint: "checkpoints/Model_WavLM_PEFT_m3.pt"
+    checkpoint: "Model_WavLM_PEFT_m3.pt"
     freeze_first_n_layers: 12
     augmentation_during_inference: false
 
@@ -55,7 +57,9 @@ architecture:
   class_order: ["angry", "disgust", "fear", "happy", "neutral", "sad"]
 
 outputs:
-  directory: "results"
+  # Repository-root results are the canonical manuscript-facing outputs.
+  # This file is located two levels below the repository root.
+  directory: "../../results"
   timing_directory: "inference_raw"
   summary_file: "efficiency_results.csv"
   layer_verification_file: "layer_execution_verification.csv"

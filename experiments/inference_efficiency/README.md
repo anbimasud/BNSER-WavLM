@@ -54,30 +54,24 @@ not become part of the reported inference peak.
 
 ## 3. Model reconstruction and checkpoint verification
 
-The benchmark reconstructs the same downstream architecture represented by
-the BNSER checkpoints:
+The training pipeline uses Hugging Face `WavLMForSequenceClassification`
+with the `microsoft/wavlm-large` configuration. The shared training loop saves
+the selected model directly with:
 
 ```text
-WavLM-Large (24 Transformer layers)
-        |
-        v
-Temporal mean pooling
-        |
-        v
-1024-dimensional representation
-        |
-        v
-Linear projector: 1024 -> 256
-        |
-        v
-Linear classifier: 256 -> 6
+torch.save(model.state_dict(), output_dir / "best_model.pt")
 ```
 
-The checkpoints contain a `model_state` dictionary whose keys use the
-`backbone.` hierarchy. The script reconstructs that hierarchy directly using
-`WavLMConfig` and `WavLMModel`; it does not instantiate
-`WavLMForSequenceClassification` and then leave its downstream head newly
-initialized.
+Therefore, each benchmark checkpoint is a **raw PyTorch state dictionary**;
+it is not wrapped inside a `model_state` field. The state-dict keys follow the
+native `WavLMForSequenceClassification` hierarchy (for example, `wavlm.*`,
+`projector.*`, and `classifier.*`).
+
+The benchmark reconstructs the exact Hugging Face architecture from
+`WavLMConfig` and `WavLMForSequenceClassification`, then loads the raw
+state dictionary with strict validation. It does not introduce a repository-
+specific `backbone` wrapper or leave the downstream classification head
+newly initialized.
 
 Before loading a checkpoint, the script checks:
 
@@ -86,8 +80,13 @@ Before loading a checkpoint, the script checks:
 3. successful `strict=True` state-dict loading.
 
 The run stops if any key or shape mismatch is detected. This is intentional:
-a benchmark must not silently continue with partially initialized downstream
-weights.
+a benchmark must not silently continue with partially initialized or randomly
+initialized model weights.
+
+For Model 3, the first 12 WavLM Transformer layers are frozen **after** the
+trained checkpoint is loaded. This reproduces the training-time trainable/frozen
+parameter configuration for parameter-count reporting while leaving the full
+24-layer forward architecture intact for inference.
 
 ## 4. Model-specific configuration
 
@@ -156,7 +155,7 @@ The verification requires:
 Thus a successful verification establishes that all 24 encoder layers remain
 in the Model 3 inference forward path.
 
-The verification is written to:
+The verification is written to the repository-level canonical results directory:
 
 ```text
 results/layer_execution_verification.csv
@@ -181,26 +180,43 @@ at inference time.
 
 ## 7. Output files
 
-After a successful run, the script creates:
+The repository uses one canonical location for manuscript-facing benchmark
+results. After a successful run, the output layout is:
 
 ```text
 experiments/inference_efficiency/
 ├── README.md
 ├── inference_efficiency.py
 ├── benchmark_config.yaml
-├── raw/
-│   ├── model1_wavlm_ft_timings.csv
-│   ├── model2_wavlm_ft_aug_timings.csv
-│   ├── model3_wavlm_peft_timings.csv
-│   └── run_metadata.json
-└── results/
-    ├── efficiency_results.csv
-    └── layer_execution_verification.csv
+└── inference_raw/
+    ├── model1_wavlm_ft_timings.csv
+    ├── model2_wavlm_ft_aug_timings.csv
+    ├── model3_wavlm_peft_timings.csv
+    └── run_metadata.json
+
+results/
+├── efficiency_results.csv
+└── layer_execution_verification.csv
 ```
 
-Each timing file contains the 300 individual latency observations. The summary
-file is calculated directly from those observations and is not reconstructed
-from manuscript values.
+The `results/` files are the canonical machine-readable outputs used for
+manuscript-facing evidence. The committed `results/efficiency_results.csv` is
+an **archived reported-measurement artifact**: its schema is now explicitly locked into the benchmark script, but the original raw 300-iteration timing
+files and run metadata were not preserved in the repository, so the exact
+historical script-run identity cannot be reconstructed from the CSV alone.
+This distinction is intentional and avoids claiming a numerical rerun that was
+not performed during repository audit.
+
+When the benchmark is rerun on the required NVIDIA Tesla T4, the script writes
+the same canonical 23-column summary schema, plus the 300 individual timing
+observations and run metadata. The metadata records the runtime versions,
+checkpoint/timing paths, and SHA-256 hashes of the benchmark script and
+configuration used for that new run.
+
+The output directory is configured explicitly as `../../results` in
+`benchmark_config.yaml`, relative to the `experiments/inference_efficiency/`
+directory containing the benchmark script. This avoids maintaining a second
+benchmark-specific `results/` directory with potentially conflicting copies.
 
 ## 8. Reproducibility and environment
 
@@ -208,15 +224,24 @@ The benchmark is intended to be run on the same hardware and software
 environment used for the reported standardized measurements. The script
 requires the NVIDIA Tesla T4 and stops if another GPU is detected.
 
-The checkpoint paths are environment-specific and are therefore stored in
-`benchmark_config.yaml` rather than embedded throughout the Python code.
-Update only those paths when running in another environment; do not change the
-model architecture or benchmark settings without rerunning and documenting a
-new measurement.
+The checkpoint location is environment-specific and is represented by one
+checkpoint-root directory plus a filename for each model. By default, the
+resolver uses the repository-local `./checkpoints` directory. The YAML values
+therefore contain only `Model_WavLM_FT_m1.pt`, `Model_WavLM_FT_Aug_m2.pt`, and
+`Model_WavLM_PEFT_m3.pt`; do **not** prepend `checkpoints/` to those values.
+For another environment, set `BNSER_CHECKPOINT_ROOT` to the directory that
+actually contains the three checkpoint files. Absolute checkpoint paths are
+rejected. This prevents accidental `checkpoints/checkpoints/...` resolution.
+
+Update only the checkpoint-root environment setting when running in another
+environment; do not change the model architecture or benchmark settings
+without rerunning and documenting a new measurement.
 
 The script records the GPU name, PyTorch version, Python version, CUDA version,
-Transformers version, input specification, timing configuration, and model
-architecture in `raw/run_metadata.json`.
+Transformers version, input specification, timing configuration, canonical CSV
+schema, checkpoint/timing provenance, and SHA-256 hashes of the benchmark
+script/configuration used for that run. The complete metadata is stored in
+`inference_raw/run_metadata.json`.
 
 ## 9. Interpretation for the manuscript
 
