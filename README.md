@@ -223,8 +223,7 @@ BNSER-WavLM/
 │   ├── efficiency_results.csv
 │   ├── layer_execution_verification.csv
 │   ├── kappa_results.xlsx
-│   ├── pairwise_kappa.csv
-│   └── kappa_mean.csv
+│   └── pairwise_kappa.csv
 └── supplementary/
     └── merged_annotations.csv
 ```
