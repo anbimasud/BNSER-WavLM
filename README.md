@@ -166,7 +166,7 @@ Three native Noakhali-dialect annotators independently labelled the corpus. The 
 
 The previously disputed **90.56%** agreement figure is not used in the revised reporting. The repository does not fabricate a new agreement calculation from unavailable raw annotator label vectors.
 
-The Anotation summary is [`results/efficiency_results.csv`](results/efficiency_results.csv), and the corresponding analysis is under [`analysis/kappa_analysis/`](analysis/kappa_analysis/).
+The Anotation summary is [`results/kappa_results.xlsx`](results/kappa_results.xlsx), and the corresponding analysis is under [`analysis/kappa_analysis/`](analysis/kappa_analysis/).
 
 ## 10. Confidence and confusion analyses
 
@@ -222,9 +222,10 @@ BNSER-WavLM/
 │   ├── test_predictions.csv
 │   ├── bootstrap_results.csv
 │   ├── efficiency_results.csv
+│   ├── kappa_results.xlsx
 │   └── source_stratified_results.csv
 └── supplementary/
-    └── merged_annotations.csv  
+    └── merged_all_annotators.csv  
 ```
 
 ## 14. Software environment
