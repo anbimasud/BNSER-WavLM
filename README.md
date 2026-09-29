@@ -99,7 +99,7 @@ Paired bootstrap accuracy differences on the same test instances are:
 
 The manuscript and repository distinguish these fixed-test-set intervals from uncertainty arising from repeated training runs or alternative speaker partitions.
 
-The analysis implementation is in [`experiments/bootstrap_ci/`](experiments/bootstrap_ci/). The archived manuscript-facing summary is in [`results/WavLM-FT_WavLM-FT+Aug_WavLM-PEFT_bootstrap_results.csv`](results/WavLM-FT_WavLM-FT+Aug_WavLM-PEFT_bootstrap_results.csv).
+The analysis implementation is in [`experiments/bootstrap_ci/`](experiments/bootstrap_ci/). The archived manuscript-facing summary is in [`results/bootstrap_results.csv`](results/bootstrap_results.csv).
 
 ## 6. Freezing-depth sensitivity
 
@@ -166,7 +166,7 @@ Three native Noakhali-dialect annotators independently labelled the corpus. The 
 
 The previously disputed **90.56%** agreement figure is not used in the revised reporting. The repository does not fabricate a new agreement calculation from unavailable raw annotator label vectors.
 
-The corresponding analysis is under [`analysis/kappa_analysis/`](analysis/kappa_analysis/).
+The Anotation summary is [`results/efficiency_results.csv`](results/efficiency_results.csv), and the corresponding analysis is under [`analysis/kappa_analysis/`](analysis/kappa_analysis/).
 
 ## 10. Confidence and confusion analyses
 
@@ -198,7 +198,7 @@ The supplied training notebooks and analysis scripts are intended to document th
 BNSER-WavLM/
 ├── README.md
 ├── requirements.txt
-├── gitignore
+├── .gitignore
 ├── data/
 │   └── dataset_statistics.md
 ├── experiments/
@@ -218,10 +218,13 @@ BNSER-WavLM/
 │   ├── confusion_matrix/
 │   ├── confidence_analysis/
 │   └── kappa_analysis/
-└── results/
-    ├── bootstrap_results.csv
-    ├── efficiency_results.csv
-    └── source_stratified_results.csv
+├── results/
+│   ├── test_predictions.csv
+│   ├── bootstrap_results.csv
+│   ├── efficiency_results.csv
+│   └── source_stratified_results.csv
+└── supplementary/
+    └── merged_annotations.csv  
 ```
 
 ## 14. Software environment
