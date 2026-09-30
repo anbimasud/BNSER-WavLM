@@ -53,6 +53,7 @@ architecture:
   num_classes: 6
   hidden_size: 1024
   transformer_layers: 24
+  projector_size: 256
   custom_projector: false
   class_order: ["angry", "disgust", "fear", "happy", "neutral", "sad"]
 

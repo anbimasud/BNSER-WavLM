@@ -320,7 +320,68 @@ def load_checkpoint_exact(
         config_name,
         num_labels=num_classes,
     )
+
+    # Validate the actual Hugging Face architecture before constructing the
+    # model. The projector is the native WavLM sequence-classification
+    # projection (`classifier_proj_size`); it is not a repository-specific
+    # custom head.
+    expected_hidden_size = int(CONFIG["architecture"]["hidden_size"])
+    expected_layers = int(CONFIG["architecture"]["transformer_layers"])
+    expected_projector_size = int(CONFIG["architecture"]["projector_size"])
+
+    actual_hidden_size = int(config.hidden_size)
+    actual_layers = int(config.num_hidden_layers)
+    actual_projector_size = int(config.classifier_proj_size)
+    actual_num_labels = int(config.num_labels)
+
+    architecture_mismatches = []
+
+    if actual_hidden_size != expected_hidden_size:
+        architecture_mismatches.append(
+            f"hidden_size={actual_hidden_size} (expected {expected_hidden_size})"
+        )
+
+    if actual_layers != expected_layers:
+        architecture_mismatches.append(
+            f"num_hidden_layers={actual_layers} (expected {expected_layers})"
+        )
+
+    if actual_projector_size != expected_projector_size:
+        architecture_mismatches.append(
+            f"classifier_proj_size={actual_projector_size} "
+            f"(expected {expected_projector_size})"
+        )
+
+    if actual_num_labels != num_classes:
+        architecture_mismatches.append(
+            f"num_labels={actual_num_labels} (expected {num_classes})"
+        )
+
+    if architecture_mismatches:
+        raise RuntimeError(
+            f"{model_name}: Hugging Face WavLM architecture mismatch: "
+            + "; ".join(architecture_mismatches)
+        )
+
     model = WavLMForSequenceClassification(config)
+
+    shape_mismatches = []
+    for key in sorted(model_keys):
+        checkpoint_shape = tuple(checkpoint_state[key].shape)
+        model_shape = tuple(model_state[key].shape)
+
+        if checkpoint_shape != model_shape:
+            shape_mismatches.append(
+                (key, checkpoint_shape, model_shape)
+            )
+
+    if shape_mismatches:
+        raise RuntimeError(
+            f"{model_name}: tensor-shape mismatch detected:\n"
+            + "\n".join(map(str, shape_mismatches[:20]))
+        )
+
+    model.load_state_dict(checkpoint_state, strict=True)
 
     model_state = model.state_dict()
     checkpoint_keys = set(checkpoint_state.keys())
@@ -694,7 +755,7 @@ def main() -> None:
         model_results.append(result_row)
         benchmark_records.append({
             "model": model_name,
-            "checkpoint_path": str(checkpoint_path),
+            "checkpoint_file": str(model_cfg["checkpoint"]),
             "checkpoint_format": checkpoint_info["checkpoint_format"],
             "timing_file": str(timing_path.relative_to(ROOT)),
         })

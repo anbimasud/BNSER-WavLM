@@ -23,7 +23,7 @@ EXPECTED_TEST_SIZE = 345
 # ---------------------------------------------------------------------------
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PREDICTION_FILE = REPO_ROOT / "results" / "test_predictions.csv"
-OUTPUT_FILE = REPO_ROOT / "results" / "bootstrap_results.csv"
+OUTPUT_FILE = REPO_ROOT / "results" / "bootstrap_results_recomputed.csv"
 
 REQUIRED_COLUMNS = [
     "sample_id",

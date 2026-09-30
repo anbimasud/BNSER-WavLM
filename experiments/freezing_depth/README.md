@@ -126,11 +126,15 @@ These summary files are generated from the completed runs rather than manually e
 
 ## Reproducibility and interpretation
 
-The five freezing depths use the same predefined speaker-independent partition. The additional configurations are trained once, so the experiment does not estimate variability across alternative training runs or alternative speaker splits.
+The four additional freezing-depth configurations are trained once using the
+same predefined speaker-independent partition as the pre-existing 12-layer
+reference. The 12-layer result is not retrained by `freezing_depth.py`; its
+test-set identity is verified against the additional runs through
+`same_test_set_verification.csv`.
 
-The sensitivity analysis is therefore interpreted descriptively. In particular, the 12-layer configuration is retained in the manuscript as a **performance–parameter-efficiency compromise**, not as an accuracy optimum. A higher accuracy at another freezing depth does not by itself establish statistical superiority or general population-level superiority.
-
-The experiment also does not establish that a particular Transformer layer boundary preserves emotion-specific information. It evaluates the empirical effect of changing the freezing boundary under the otherwise fixed WavLM-PEFT configuration.
+The sensitivity analysis is interpreted descriptively. The 12-layer configuration
+is retained as a performance–parameter-efficiency compromise among the evaluated
+settings, not as an accuracy optimum.
 
 ## Relation to the manuscript
 

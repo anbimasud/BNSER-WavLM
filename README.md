@@ -222,6 +222,8 @@ BNSER-WavLM/
 │   ├── source_stratified_results.csv
 │   ├── efficiency_results.csv
 │   ├── layer_execution_verification.csv
+│   ├── freezing_depth_combined.csv
+│   ├── paired_bootstrap_accuracy_95CI.csv
 │   ├── kappa_results.xlsx
 │   └── pairwise_kappa.csv
 └── supplementary/

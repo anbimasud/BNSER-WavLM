@@ -69,9 +69,20 @@ native `WavLMForSequenceClassification` hierarchy (for example, `wavlm.*`,
 
 The benchmark reconstructs the exact Hugging Face architecture from
 `WavLMConfig` and `WavLMForSequenceClassification`, then loads the raw
-state dictionary with strict validation. It does not introduce a repository-
-specific `backbone` wrapper or leave the downstream classification head
-newly initialized.
+state dictionary with strict validation.
+
+The benchmark configuration explicitly records the manuscript-aligned
+architecture dimensions:
+
+- 1024-dimensional WavLM hidden representation;
+- 24 Transformer layers;
+- 256-dimensional classifier projection; and
+- 6 output classes.
+
+Before model construction, the script checks these values against the
+loaded Hugging Face `WavLMConfig`, including
+`classifier_proj_size == 256`. The benchmark stops if the configured
+architecture and the actual Hugging Face architecture disagree.
 
 Before loading a checkpoint, the script checks:
 

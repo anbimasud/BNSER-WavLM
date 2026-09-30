@@ -162,9 +162,10 @@ For the non-Neutral subset:
 
 ---
 
-## 8. Dataset Development and Audio Processing Summary
+## 8. Dataset Development and Model-input Processing Summary
 
-The corpus was developed using standardized post-acquisition processing.
+Corpus-level post-acquisition processing and model-input preprocessing are
+described separately below.
 
 ### Scripted recordings
 
